@@ -1,5 +1,5 @@
 # Binaries
-proxmox-guardian
+/proxmox-guardian
 *.exe
 *.exe~
 *.dll
