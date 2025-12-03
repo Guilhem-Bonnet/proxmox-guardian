@@ -38,11 +38,11 @@ func (s *Status) IsLowBattery() bool {
 
 // Client is a NUT (Network UPS Tools) client
 type Client struct {
-	host     string
-	upsName  string
-	conn     net.Conn
-	mu       sync.Mutex
-	timeout  time.Duration
+	host    string
+	upsName string
+	conn    net.Conn
+	mu      sync.Mutex
+	timeout time.Duration
 }
 
 // NewClient creates a new NUT client
@@ -58,12 +58,12 @@ func NewClient(host, upsName string) *Client {
 func (c *Client) Connect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	conn, err := net.DialTimeout("tcp", c.host, c.timeout)
 	if err != nil {
 		return fmt.Errorf("connecting to NUT server: %w", err)
 	}
-	
+
 	c.conn = conn
 	return nil
 }
@@ -72,7 +72,7 @@ func (c *Client) Connect() error {
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.conn != nil {
 		return c.conn.Close()
 	}
@@ -85,12 +85,12 @@ func (c *Client) GetStatus(ctx context.Context) (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	status := &Status{
 		Name:      c.upsName,
 		Timestamp: time.Now(),
 	}
-	
+
 	if v, ok := vars["ups.status"]; ok {
 		status.Status = v
 	}
@@ -103,7 +103,7 @@ func (c *Client) GetStatus(ctx context.Context) (*Status, error) {
 	if v, ok := vars["ups.load"]; ok {
 		status.Load, _ = strconv.Atoi(v)
 	}
-	
+
 	return status, nil
 }
 
@@ -111,30 +111,30 @@ func (c *Client) GetStatus(ctx context.Context) (*Status, error) {
 func (c *Client) getVariables(ctx context.Context) (map[string]string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.conn == nil {
 		return nil, fmt.Errorf("not connected")
 	}
-	
+
 	// Set deadline from context
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
 	} else {
 		c.conn.SetDeadline(time.Now().Add(c.timeout))
 	}
-	
+
 	// Request all variables
 	cmd := fmt.Sprintf("LIST VAR %s\n", c.upsName)
 	if _, err := c.conn.Write([]byte(cmd)); err != nil {
 		return nil, fmt.Errorf("sending command: %w", err)
 	}
-	
+
 	vars := make(map[string]string)
 	scanner := bufio.NewScanner(c.conn)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		if strings.HasPrefix(line, "BEGIN LIST VAR") {
 			continue
 		}
@@ -144,7 +144,7 @@ func (c *Client) getVariables(ctx context.Context) (map[string]string, error) {
 		if strings.HasPrefix(line, "ERR") {
 			return nil, fmt.Errorf("NUT error: %s", line)
 		}
-		
+
 		// Parse: VAR upsname varname "value"
 		if strings.HasPrefix(line, "VAR ") {
 			parts := strings.SplitN(line, " ", 4)
@@ -155,22 +155,22 @@ func (c *Client) getVariables(ctx context.Context) (map[string]string, error) {
 			}
 		}
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
-	
+
 	return vars, nil
 }
 
 // Monitor continuously monitors UPS status and sends updates to channel
 type Monitor struct {
-	client    *Client
-	interval  time.Duration
+	client     *Client
+	interval   time.Duration
 	thresholds Thresholds
-	statusCh  chan *Status
-	eventCh   chan Event
-	stopCh    chan struct{}
+	statusCh   chan *Status
+	eventCh    chan Event
+	stopCh     chan struct{}
 }
 
 // Thresholds for battery levels
@@ -184,11 +184,11 @@ type Thresholds struct {
 type EventType string
 
 const (
-	EventPowerLost      EventType = "POWER_LOST"
-	EventPowerRestored  EventType = "POWER_RESTORED"
-	EventLowBattery     EventType = "LOW_BATTERY"
+	EventPowerLost       EventType = "POWER_LOST"
+	EventPowerRestored   EventType = "POWER_RESTORED"
+	EventLowBattery      EventType = "LOW_BATTERY"
 	EventCriticalBattery EventType = "CRITICAL_BATTERY"
-	EventEmergency      EventType = "EMERGENCY"
+	EventEmergency       EventType = "EMERGENCY"
 )
 
 // Event represents a UPS event
@@ -216,9 +216,9 @@ func (m *Monitor) Start(ctx context.Context) error {
 	if err := m.client.Connect(); err != nil {
 		return err
 	}
-	
+
 	go m.monitorLoop(ctx)
-	
+
 	return nil
 }
 
@@ -241,9 +241,9 @@ func (m *Monitor) Status() <-chan *Status {
 func (m *Monitor) monitorLoop(ctx context.Context) {
 	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
-	
+
 	var lastStatus *Status
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -256,13 +256,13 @@ func (m *Monitor) monitorLoop(ctx context.Context) {
 				// TODO: Log error, maybe emit event
 				continue
 			}
-			
+
 			// Send status update
 			select {
 			case m.statusCh <- status:
 			default:
 			}
-			
+
 			// Check for events
 			m.checkEvents(status, lastStatus)
 			lastStatus = status
@@ -280,7 +280,7 @@ func (m *Monitor) checkEvents(current, last *Status) {
 			m.emitEvent(EventPowerRestored, current, "Power restored")
 		}
 	}
-	
+
 	// Battery level events
 	if current.IsOnBattery() {
 		if current.BatteryCharge <= m.thresholds.Emergency {
@@ -300,7 +300,7 @@ func (m *Monitor) emitEvent(eventType EventType, status *Status, message string)
 		Timestamp: time.Now(),
 		Message:   message,
 	}
-	
+
 	select {
 	case m.eventCh <- event:
 	default:

@@ -42,7 +42,7 @@ func NewManager(cfg Config, stateMgr *state.Manager, logger Logger, notifier Not
 	if cfg.MaxRetries == 0 {
 		cfg.MaxRetries = 3
 	}
-	
+
 	return &Manager{
 		config:       cfg,
 		stateManager: stateMgr,
@@ -76,8 +76,8 @@ func (m *Manager) Execute(ctx context.Context) error {
 	)
 
 	m.notify("recovery_start", map[string]interface{}{
-		"session_id":        currentState.SessionID,
-		"original_trigger":  currentState.TriggerEvent,
+		"session_id":         currentState.SessionID,
+		"original_trigger":   currentState.TriggerEvent,
 		"actions_to_recover": len(m.stateManager.GetActionsForRecovery()),
 	})
 
@@ -91,7 +91,7 @@ func (m *Manager) Execute(ctx context.Context) error {
 		m.logger.Info("Waiting for power to stabilize",
 			"delay", m.config.PowerStableDelay,
 		)
-		
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -101,7 +101,7 @@ func (m *Manager) Execute(ctx context.Context) error {
 
 	// Get actions that need recovery (in reverse order)
 	actionsToRecover := m.stateManager.GetActionsForRecovery()
-	
+
 	m.logger.Info("Recovering actions",
 		"count", len(actionsToRecover),
 	)
@@ -124,9 +124,9 @@ func (m *Manager) Execute(ctx context.Context) error {
 				"type", action.ActionType,
 				"error", err,
 			)
-			
+
 			recoveryErrors = append(recoveryErrors, err)
-			
+
 			// Handle error based on config
 			switch m.config.OnError {
 			case "notify":
@@ -157,16 +157,16 @@ func (m *Manager) Execute(ctx context.Context) error {
 		m.stateManager.SetStatus(state.StatusFailed)
 		m.stateManager.SetError(fmt.Sprintf("%d recovery errors", len(recoveryErrors)))
 	}
-	
+
 	if err := m.stateManager.Save(); err != nil {
 		m.logger.Error("Failed to save state after recovery", "error", err)
 	}
 
 	m.notify("recovery_complete", map[string]interface{}{
-		"session_id":     currentState.SessionID,
-		"total_actions":  len(actionsToRecover),
-		"success_count":  successCount,
-		"error_count":    len(recoveryErrors),
+		"session_id":    currentState.SessionID,
+		"total_actions": len(actionsToRecover),
+		"success_count": successCount,
+		"error_count":   len(recoveryErrors),
 	})
 
 	if len(recoveryErrors) > 0 {
@@ -183,7 +183,7 @@ func (m *Manager) Execute(ctx context.Context) error {
 // recoverAction executes recovery for a single action
 func (m *Manager) recoverAction(ctx context.Context, action state.CompletedAction) error {
 	spec := action.ActionSpec
-	
+
 	if spec.Recovery == "" {
 		return nil // No recovery command
 	}
@@ -201,19 +201,19 @@ func (m *Manager) recoverAction(ctx context.Context, action state.CompletedActio
 		if err == nil && result.Success {
 			return nil
 		}
-		
+
 		lastErr = err
 		if result != nil && !result.Success {
 			lastErr = fmt.Errorf("recovery failed: %s", result.Error)
 		}
-		
+
 		if attempt < m.config.MaxRetries {
 			m.logger.Debug("Recovery attempt failed, retrying",
 				"attempt", attempt,
 				"max", m.config.MaxRetries,
 				"error", lastErr,
 			)
-			
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -232,21 +232,21 @@ func (m *Manager) createExecutor(spec state.ActionSpec) (executor.Executor, erro
 		exec := executor.NewSSHExecutor(spec.Host, spec.User, spec.Command)
 		exec.Recovery = spec.Recovery
 		return exec, nil
-		
+
 	case "local":
 		exec := executor.NewLocalExecutor(spec.Command)
 		exec.Recovery = spec.Recovery
 		return exec, nil
-		
+
 	case "proxmox-exec":
 		// For proxmox-exec, we need the ProxmoxAPI which we don't have here
 		// Fall back to logging a warning
 		return nil, fmt.Errorf("proxmox-exec recovery requires API connection - manual recovery needed")
-		
+
 	case "proxmox-guest":
 		// Guest recovery (restart) also needs API
 		return nil, fmt.Errorf("proxmox-guest recovery requires API connection - manual recovery needed")
-		
+
 	default:
 		return nil, fmt.Errorf("unknown action type: %s", spec.Type)
 	}
@@ -256,7 +256,7 @@ func (m *Manager) notify(event string, data map[string]interface{}) {
 	if m.notifier == nil {
 		return
 	}
-	
+
 	if err := m.notifier.Notify(event, data); err != nil {
 		m.logger.Error("Notification failed", "event", event, "error", err)
 	}

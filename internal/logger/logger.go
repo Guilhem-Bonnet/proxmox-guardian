@@ -52,11 +52,11 @@ func ParseLevel(s string) Level {
 
 // Logger is a structured logger
 type Logger struct {
-	level   Level
-	format  string // "json" or "text"
-	output  io.Writer
-	mu      sync.Mutex
-	fields  map[string]interface{}
+	level  Level
+	format string // "json" or "text"
+	output io.Writer
+	mu     sync.Mutex
+	fields map[string]interface{}
 }
 
 // Config holds logger configuration
@@ -72,12 +72,12 @@ func New(cfg Config) *Logger {
 	if output == nil {
 		output = os.Stdout
 	}
-	
+
 	format := cfg.Format
 	if format == "" {
 		format = "json"
 	}
-	
+
 	return &Logger{
 		level:  ParseLevel(cfg.Level),
 		format: format,
@@ -94,12 +94,12 @@ func (l *Logger) WithField(key string, value interface{}) *Logger {
 		output: l.output,
 		fields: make(map[string]interface{}),
 	}
-	
+
 	for k, v := range l.fields {
 		newLogger.fields[k] = v
 	}
 	newLogger.fields[key] = value
-	
+
 	return newLogger
 }
 
@@ -111,14 +111,14 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 		output: l.output,
 		fields: make(map[string]interface{}),
 	}
-	
+
 	for k, v := range l.fields {
 		newLogger.fields[k] = v
 	}
 	for k, v := range fields {
 		newLogger.fields[k] = v
 	}
-	
+
 	return newLogger
 }
 
@@ -146,22 +146,22 @@ func (l *Logger) log(level Level, msg string, keyvals ...interface{}) {
 	if level < l.level {
 		return
 	}
-	
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	// Build fields from keyvals
 	fields := make(map[string]interface{})
 	for k, v := range l.fields {
 		fields[k] = v
 	}
-	
+
 	for i := 0; i < len(keyvals)-1; i += 2 {
 		if key, ok := keyvals[i].(string); ok {
 			fields[key] = keyvals[i+1]
 		}
 	}
-	
+
 	if l.format == "json" {
 		l.logJSON(level, msg, fields)
 	} else {
@@ -175,28 +175,28 @@ func (l *Logger) logJSON(level Level, msg string, fields map[string]interface{})
 		"level":     level.String(),
 		"message":   msg,
 	}
-	
+
 	for k, v := range fields {
 		entry[k] = v
 	}
-	
+
 	data, err := json.Marshal(entry)
 	if err != nil {
 		return
 	}
-	
+
 	fmt.Fprintln(l.output, string(data))
 }
 
 func (l *Logger) logText(level Level, msg string, fields map[string]interface{}) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	
+
 	line := fmt.Sprintf("%s [%s] %s", timestamp, level.String(), msg)
-	
+
 	for k, v := range fields {
 		line += fmt.Sprintf(" %s=%v", k, v)
 	}
-	
+
 	fmt.Fprintln(l.output, line)
 }
 

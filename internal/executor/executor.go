@@ -7,24 +7,24 @@ import (
 
 // ActionResult represents the result of an action execution
 type ActionResult struct {
-	Success   bool          `json:"success"`
-	Output    string        `json:"output,omitempty"`
-	Error     string        `json:"error,omitempty"`
-	Duration  time.Duration `json:"duration"`
-	Retries   int           `json:"retries,omitempty"`
+	Success  bool          `json:"success"`
+	Output   string        `json:"output,omitempty"`
+	Error    string        `json:"error,omitempty"`
+	Duration time.Duration `json:"duration"`
+	Retries  int           `json:"retries,omitempty"`
 }
 
 // Executor interface for all action types
 type Executor interface {
 	// Execute runs the action
 	Execute(ctx context.Context) (*ActionResult, error)
-	
+
 	// Recover reverses the action (for recovery mode)
 	Recover(ctx context.Context) (*ActionResult, error)
-	
+
 	// Healthcheck verifies the action completed successfully
 	Healthcheck(ctx context.Context) (bool, error)
-	
+
 	// String returns a human-readable description
 	String() string
 }
@@ -58,39 +58,39 @@ func ExecuteWithRetry(ctx context.Context, exec Executor, retry *RetryConfig) (*
 	if retry == nil || retry.Attempts <= 1 {
 		return exec.Execute(ctx)
 	}
-	
+
 	var lastResult *ActionResult
 	var lastErr error
-	
+
 	delay := retry.Delay
-	
+
 	for attempt := 1; attempt <= retry.Attempts; attempt++ {
 		result, err := exec.Execute(ctx)
 		if err == nil && result.Success {
 			result.Retries = attempt - 1
 			return result, nil
 		}
-		
+
 		lastResult = result
 		lastErr = err
-		
+
 		if attempt < retry.Attempts {
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-time.After(delay):
 			}
-			
+
 			// Increase delay for exponential backoff
 			if retry.Backoff == "exponential" {
 				delay = delay * 2
 			}
 		}
 	}
-	
+
 	if lastResult != nil {
 		lastResult.Retries = retry.Attempts
 	}
-	
+
 	return lastResult, lastErr
 }

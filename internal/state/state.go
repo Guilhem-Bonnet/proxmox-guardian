@@ -34,26 +34,26 @@ type State struct {
 
 // CompletedAction represents an action that was executed
 type CompletedAction struct {
-	PhaseIndex  int       `json:"phase_index"`
-	PhaseName   string    `json:"phase_name"`
-	ActionIndex int       `json:"action_index"`
-	ActionType  string    `json:"action_type"`
+	PhaseIndex  int        `json:"phase_index"`
+	PhaseName   string     `json:"phase_name"`
+	ActionIndex int        `json:"action_index"`
+	ActionType  string     `json:"action_type"`
 	ActionSpec  ActionSpec `json:"action_spec"`
-	CompletedAt time.Time `json:"completed_at"`
-	Success     bool      `json:"success"`
-	Output      string    `json:"output,omitempty"`
-	Error       string    `json:"error,omitempty"`
+	CompletedAt time.Time  `json:"completed_at"`
+	Success     bool       `json:"success"`
+	Output      string     `json:"output,omitempty"`
+	Error       string     `json:"error,omitempty"`
 }
 
 // ActionSpec contains all info needed to recreate an executor
 type ActionSpec struct {
-	Type     string `json:"type"`
-	Host     string `json:"host,omitempty"`
-	User     string `json:"user,omitempty"`
-	Guest    string `json:"guest,omitempty"`
-	Command  string `json:"command,omitempty"`
-	Recovery string `json:"recovery,omitempty"`
-	Action   string `json:"action,omitempty"`
+	Type     string        `json:"type"`
+	Host     string        `json:"host,omitempty"`
+	User     string        `json:"user,omitempty"`
+	Guest    string        `json:"guest,omitempty"`
+	Command  string        `json:"command,omitempty"`
+	Recovery string        `json:"recovery,omitempty"`
+	Action   string        `json:"action,omitempty"`
 	Selector *SelectorSpec `json:"selector,omitempty"`
 }
 

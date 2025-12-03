@@ -30,7 +30,7 @@ func NewProxmoxGuestExecutor(selector GuestSelector, action string, api ProxmoxA
 // Execute shuts down matching guests
 func (p *ProxmoxGuestExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 	start := time.Now()
-	
+
 	guests, err := p.ProxmoxAPI.GetGuestsBySelector(ctx, p.Selector)
 	if err != nil {
 		return &ActionResult{
@@ -39,7 +39,7 @@ func (p *ProxmoxGuestExecutor) Execute(ctx context.Context) (*ActionResult, erro
 			Duration: time.Since(start),
 		}, err
 	}
-	
+
 	if len(guests) == 0 {
 		return &ActionResult{
 			Success:  true,
@@ -47,13 +47,13 @@ func (p *ProxmoxGuestExecutor) Execute(ctx context.Context) (*ActionResult, erro
 			Duration: time.Since(start),
 		}, nil
 	}
-	
+
 	var shutdownErrors []string
 	var shutdownSuccess []string
-	
+
 	for _, guest := range guests {
 		guestID := fmt.Sprintf("%d", guest.VMID)
-		
+
 		err := p.ProxmoxAPI.ShutdownGuest(ctx, guest.Type, guestID, p.Timeout)
 		if err != nil {
 			shutdownErrors = append(shutdownErrors, fmt.Sprintf("%s:%s (%v)", guest.Type, guest.Name, err))
@@ -61,9 +61,9 @@ func (p *ProxmoxGuestExecutor) Execute(ctx context.Context) (*ActionResult, erro
 			shutdownSuccess = append(shutdownSuccess, fmt.Sprintf("%s:%s", guest.Type, guest.Name))
 		}
 	}
-	
+
 	output := fmt.Sprintf("shutdown %d guests: %v", len(shutdownSuccess), shutdownSuccess)
-	
+
 	if len(shutdownErrors) > 0 {
 		return &ActionResult{
 			Success:  false,
@@ -72,7 +72,7 @@ func (p *ProxmoxGuestExecutor) Execute(ctx context.Context) (*ActionResult, erro
 			Duration: time.Since(start),
 		}, fmt.Errorf("partial failure")
 	}
-	
+
 	return &ActionResult{
 		Success:  true,
 		Output:   output,
@@ -95,13 +95,13 @@ func (p *ProxmoxGuestExecutor) Healthcheck(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	
+
 	for _, guest := range guests {
 		if guest.Status == "running" {
 			return false, nil
 		}
 	}
-	
+
 	return true, nil
 }
 

@@ -13,27 +13,27 @@ import (
 
 // State represents the current shutdown state
 type State struct {
-	SessionID        string           `json:"session_id"`
-	StartedAt        time.Time        `json:"started_at"`
-	Status           string           `json:"status"` // "idle", "in_progress", "completed", "failed", "recovering"
-	CurrentPhase     int              `json:"current_phase"`
-	CurrentAction    int              `json:"current_action"`
+	SessionID        string            `json:"session_id"`
+	StartedAt        time.Time         `json:"started_at"`
+	Status           string            `json:"status"` // "idle", "in_progress", "completed", "failed", "recovering"
+	CurrentPhase     int               `json:"current_phase"`
+	CurrentAction    int               `json:"current_action"`
 	CompletedActions []CompletedAction `json:"completed_actions"`
-	TriggerEvent     string           `json:"trigger_event"`
-	LastUpdated      time.Time        `json:"last_updated"`
+	TriggerEvent     string            `json:"trigger_event"`
+	LastUpdated      time.Time         `json:"last_updated"`
 }
 
 // CompletedAction tracks an action that was executed
 type CompletedAction struct {
-	PhaseIndex   int       `json:"phase_index"`
-	PhaseName    string    `json:"phase_name"`
-	ActionIndex  int       `json:"action_index"`
-	ActionType   string    `json:"action_type"`
-	Description  string    `json:"description"`
-	RecoveryCmd  string    `json:"recovery_cmd,omitempty"`
-	CompletedAt  time.Time `json:"completed_at"`
-	Success      bool      `json:"success"`
-	Error        string    `json:"error,omitempty"`
+	PhaseIndex  int       `json:"phase_index"`
+	PhaseName   string    `json:"phase_name"`
+	ActionIndex int       `json:"action_index"`
+	ActionType  string    `json:"action_type"`
+	Description string    `json:"description"`
+	RecoveryCmd string    `json:"recovery_cmd,omitempty"`
+	CompletedAt time.Time `json:"completed_at"`
+	Success     bool      `json:"success"`
+	Error       string    `json:"error,omitempty"`
 }
 
 // Phase represents a shutdown phase
@@ -93,7 +93,7 @@ func NewOrchestrator(phases []Phase, stateFile string, logger Logger, notifier N
 // Execute runs the shutdown sequence
 func (o *Orchestrator) Execute(ctx context.Context, triggerEvent string) error {
 	o.mu.Lock()
-	
+
 	// Initialize new session
 	o.state = &State{
 		SessionID:        fmt.Sprintf("%d", time.Now().UnixNano()),
@@ -105,59 +105,59 @@ func (o *Orchestrator) Execute(ctx context.Context, triggerEvent string) error {
 		CompletedActions: []CompletedAction{},
 		LastUpdated:      time.Now(),
 	}
-	
+
 	if err := o.saveState(); err != nil {
 		o.mu.Unlock()
 		return fmt.Errorf("saving initial state: %w", err)
 	}
 	o.mu.Unlock()
-	
+
 	o.notify("shutdown_start", map[string]interface{}{
 		"trigger":    triggerEvent,
 		"session_id": o.state.SessionID,
 		"phases":     len(o.phases),
 	})
-	
+
 	// Execute phases
 	for i, phase := range o.phases {
 		o.logger.Info("Starting phase", "phase", phase.Name, "index", i+1, "total", len(o.phases))
-		
+
 		o.mu.Lock()
 		o.state.CurrentPhase = i
 		o.state.CurrentAction = 0
 		o.state.LastUpdated = time.Now()
 		o.saveState()
 		o.mu.Unlock()
-		
+
 		o.notify("phase_start", map[string]interface{}{
 			"phase": phase.Name,
 			"index": i + 1,
 		})
-		
+
 		if err := o.executePhase(ctx, i, phase); err != nil {
 			o.logger.Error("Phase failed", "phase", phase.Name, "error", err)
-			
+
 			// Check if we should continue despite error
 			// For now, continue to next phase
 		}
-		
+
 		o.notify("phase_complete", map[string]interface{}{
 			"phase": phase.Name,
 			"index": i + 1,
 		})
 	}
-	
+
 	o.mu.Lock()
 	o.state.Status = "completed"
 	o.state.LastUpdated = time.Now()
 	o.saveState()
 	o.mu.Unlock()
-	
+
 	o.notify("shutdown_complete", map[string]interface{}{
 		"session_id": o.state.SessionID,
 		"duration":   time.Since(o.state.StartedAt).String(),
 	})
-	
+
 	return nil
 }
 
@@ -168,7 +168,7 @@ func (o *Orchestrator) executePhase(ctx context.Context, phaseIndex int, phase P
 		ctx, cancel = context.WithTimeout(ctx, phase.Timeout)
 		defer cancel()
 	}
-	
+
 	if phase.Parallel {
 		return o.executeParallel(ctx, phaseIndex, phase)
 	}
@@ -182,9 +182,9 @@ func (o *Orchestrator) executeSequential(ctx context.Context, phaseIndex int, ph
 		o.state.LastUpdated = time.Now()
 		o.saveState()
 		o.mu.Unlock()
-		
+
 		result, err := o.executeAction(ctx, phaseIndex, phase.Name, i, action)
-		
+
 		// Track completed action
 		completed := CompletedAction{
 			PhaseIndex:  phaseIndex,
@@ -201,12 +201,12 @@ func (o *Orchestrator) executeSequential(ctx context.Context, phaseIndex int, ph
 		} else if !result.Success {
 			completed.Error = result.Error
 		}
-		
+
 		o.mu.Lock()
 		o.state.CompletedActions = append(o.state.CompletedActions, completed)
 		o.saveState()
 		o.mu.Unlock()
-		
+
 		// Handle error based on on_error setting
 		if err != nil || !result.Success {
 			switch action.OnError {
@@ -223,21 +223,21 @@ func (o *Orchestrator) executeSequential(ctx context.Context, phaseIndex int, ph
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 func (o *Orchestrator) executeParallel(ctx context.Context, phaseIndex int, phase Phase) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(phase.Actions))
-	
+
 	for i, action := range phase.Actions {
 		wg.Add(1)
 		go func(idx int, act Action) {
 			defer wg.Done()
-			
+
 			result, err := o.executeAction(ctx, phaseIndex, phase.Name, idx, act)
-			
+
 			// Track completed action
 			completed := CompletedAction{
 				PhaseIndex:  phaseIndex,
@@ -254,47 +254,47 @@ func (o *Orchestrator) executeParallel(ctx context.Context, phaseIndex int, phas
 			} else if !result.Success {
 				completed.Error = result.Error
 			}
-			
+
 			o.mu.Lock()
 			o.state.CompletedActions = append(o.state.CompletedActions, completed)
 			o.saveState()
 			o.mu.Unlock()
-			
+
 			if err != nil && act.OnError == "abort_all" {
 				errCh <- err
 			}
 		}(i, action)
 	}
-	
+
 	wg.Wait()
 	close(errCh)
-	
+
 	// Check for abort errors
 	for err := range errCh {
 		if err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
 func (o *Orchestrator) executeAction(ctx context.Context, phaseIndex int, phaseName string, actionIndex int, action Action) (*executor.ActionResult, error) {
-	o.logger.Debug("Executing action", 
+	o.logger.Debug("Executing action",
 		"phase", phaseName,
 		"action", action.Executor.String(),
 	)
-	
+
 	// Execute with retry if configured
 	var result *executor.ActionResult
 	var err error
-	
+
 	if action.Retry != nil {
 		result, err = executor.ExecuteWithRetry(ctx, action.Executor, action.Retry)
 	} else {
 		result, err = action.Executor.Execute(ctx)
 	}
-	
+
 	if err != nil {
 		o.logger.Error("Action failed",
 			"phase", phaseName,
@@ -303,7 +303,7 @@ func (o *Orchestrator) executeAction(ctx context.Context, phaseIndex int, phaseN
 		)
 		return result, err
 	}
-	
+
 	// Run healthcheck if configured
 	if action.Healthcheck != nil {
 		ok, hcErr := action.Executor.Healthcheck(ctx)
@@ -315,13 +315,13 @@ func (o *Orchestrator) executeAction(ctx context.Context, phaseIndex int, phaseN
 			return result, fmt.Errorf("healthcheck failed")
 		}
 	}
-	
+
 	o.logger.Info("Action completed",
 		"phase", phaseName,
 		"action", action.Executor.String(),
 		"duration", result.Duration,
 	)
-	
+
 	return result, nil
 }
 
@@ -335,39 +335,39 @@ func (o *Orchestrator) Recover(ctx context.Context) error {
 	o.state.Status = "recovering"
 	o.saveState()
 	o.mu.Unlock()
-	
+
 	o.notify("recovery_start", map[string]interface{}{
 		"session_id": o.state.SessionID,
 		"actions":    len(o.state.CompletedActions),
 	})
-	
+
 	// Recover in reverse order
 	for i := len(o.state.CompletedActions) - 1; i >= 0; i-- {
 		action := o.state.CompletedActions[i]
-		
+
 		if action.RecoveryCmd == "" {
 			continue
 		}
-		
+
 		o.logger.Info("Recovering action",
 			"phase", action.PhaseName,
 			"action", action.Description,
 		)
-		
+
 		// Find the executor and run recovery
 		// TODO: Need to recreate executor from state
 	}
-	
+
 	o.mu.Lock()
 	o.state.Status = "idle"
 	o.state.CompletedActions = nil
 	o.saveState()
 	o.mu.Unlock()
-	
+
 	o.notify("recovery_complete", map[string]interface{}{
 		"session_id": o.state.SessionID,
 	})
-	
+
 	return nil
 }
 
@@ -387,10 +387,10 @@ func (o *Orchestrator) LoadState() error {
 	if err != nil {
 		return err
 	}
-	
+
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	
+
 	return json.Unmarshal(data, o.state)
 }
 
@@ -399,7 +399,7 @@ func (o *Orchestrator) saveState() error {
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(o.stateFile, data, 0600)
 }
 
@@ -407,7 +407,7 @@ func (o *Orchestrator) notify(event string, data map[string]interface{}) {
 	if o.notifier == nil {
 		return
 	}
-	
+
 	if err := o.notifier.Notify(event, data); err != nil {
 		o.logger.Error("Notification failed", "event", event, "error", err)
 	}

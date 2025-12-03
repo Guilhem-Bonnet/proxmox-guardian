@@ -10,20 +10,20 @@ import (
 
 // Config represents the main configuration structure
 type Config struct {
-	UPS           UPSConfig           `yaml:"ups"`
-	Proxmox       ProxmoxConfig       `yaml:"proxmox"`
-	Phases        []Phase             `yaml:"phases"`
-	Recovery      RecoveryConfig      `yaml:"recovery"`
+	UPS           UPSConfig            `yaml:"ups"`
+	Proxmox       ProxmoxConfig        `yaml:"proxmox"`
+	Phases        []Phase              `yaml:"phases"`
+	Recovery      RecoveryConfig       `yaml:"recovery"`
 	Notifications []NotificationConfig `yaml:"notifications"`
-	Options       OptionsConfig       `yaml:"options"`
+	Options       OptionsConfig        `yaml:"options"`
 }
 
 // UPSConfig holds NUT connection settings
 type UPSConfig struct {
-	Driver     string         `yaml:"driver"`
-	Host       string         `yaml:"host"`
-	Name       string         `yaml:"name"`
-	Thresholds UPSThresholds  `yaml:"thresholds"`
+	Driver     string        `yaml:"driver"`
+	Host       string        `yaml:"host"`
+	Name       string        `yaml:"name"`
+	Thresholds UPSThresholds `yaml:"thresholds"`
 }
 
 // UPSThresholds defines battery level thresholds
@@ -35,11 +35,11 @@ type UPSThresholds struct {
 
 // ProxmoxConfig holds Proxmox API connection settings
 type ProxmoxConfig struct {
-	APIURL       string `yaml:"api_url"`
-	TokenID      string `yaml:"token_id"`
-	TokenSecret  string `yaml:"token_secret,omitempty"`
-	SecretsFile  string `yaml:"secrets_file,omitempty"`
-	InsecureTLS  bool   `yaml:"insecure_tls"`
+	APIURL      string `yaml:"api_url"`
+	TokenID     string `yaml:"token_id"`
+	TokenSecret string `yaml:"token_secret,omitempty"`
+	SecretsFile string `yaml:"secrets_file,omitempty"`
+	InsecureTLS bool   `yaml:"insecure_tls"`
 }
 
 // Phase represents a shutdown phase with ordered actions

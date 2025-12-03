@@ -56,7 +56,7 @@ func NewProxmoxExecExecutor(guest, command string, api ProxmoxAPI) *ProxmoxExecE
 // Execute runs the command inside the guest
 func (p *ProxmoxExecExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 	start := time.Now()
-	
+
 	guestType, guestID, err := parseGuest(p.Guest)
 	if err != nil {
 		return &ActionResult{
@@ -65,7 +65,7 @@ func (p *ProxmoxExecExecutor) Execute(ctx context.Context) (*ActionResult, error
 			Duration: time.Since(start),
 		}, err
 	}
-	
+
 	output, err := p.ProxmoxAPI.ExecInGuest(ctx, guestType, guestID, p.Command)
 	if err != nil {
 		return &ActionResult{
@@ -75,7 +75,7 @@ func (p *ProxmoxExecExecutor) Execute(ctx context.Context) (*ActionResult, error
 			Duration: time.Since(start),
 		}, err
 	}
-	
+
 	return &ActionResult{
 		Success:  true,
 		Output:   output,
@@ -91,10 +91,10 @@ func (p *ProxmoxExecExecutor) Recover(ctx context.Context) (*ActionResult, error
 			Output:  "no recovery command defined",
 		}, nil
 	}
-	
+
 	recoveryExec := NewProxmoxExecExecutor(p.Guest, p.Recovery, p.ProxmoxAPI)
 	recoveryExec.Timeout = p.Timeout
-	
+
 	return recoveryExec.Execute(ctx)
 }
 
@@ -103,14 +103,14 @@ func (p *ProxmoxExecExecutor) Healthcheck(ctx context.Context) (bool, error) {
 	if p.BaseAction.Healthcheck == nil {
 		return true, nil
 	}
-	
+
 	checkExec := NewProxmoxExecExecutor(p.Guest, p.BaseAction.Healthcheck.Command, p.ProxmoxAPI)
 	checkExec.Timeout = 10 * time.Second
-	
+
 	result, _ := checkExec.Execute(ctx)
-	
+
 	expectSuccess := p.BaseAction.Healthcheck.Expect == "success"
-	
+
 	if expectSuccess {
 		return result.Success, nil
 	}
@@ -128,13 +128,13 @@ func parseGuest(guest string) (guestType, guestID string, err error) {
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid guest format: %s (expected 'lxc:name' or 'vm:id')", guest)
 	}
-	
+
 	guestType = strings.ToLower(parts[0])
 	guestID = parts[1]
-	
+
 	if guestType != "lxc" && guestType != "vm" {
 		return "", "", fmt.Errorf("invalid guest type: %s (expected 'lxc' or 'vm')", guestType)
 	}
-	
+
 	return guestType, guestID, nil
 }

@@ -37,17 +37,17 @@ func NewNotifier(webhooks []WebhookConfig) *Notifier {
 // Notify sends a notification for the given event
 func (n *Notifier) Notify(event string, data map[string]interface{}) error {
 	var lastErr error
-	
+
 	for _, webhook := range n.webhooks {
 		if !n.shouldNotify(webhook, event) {
 			continue
 		}
-		
+
 		if err := n.sendWebhook(webhook, event, data); err != nil {
 			lastErr = err
 		}
 	}
-	
+
 	return lastErr
 }
 
@@ -55,13 +55,13 @@ func (n *Notifier) shouldNotify(webhook WebhookConfig, event string) bool {
 	if len(webhook.Events) == 0 {
 		return true // No filter = all events
 	}
-	
+
 	for _, e := range webhook.Events {
 		if e == event || e == "*" {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -70,29 +70,29 @@ func (n *Notifier) sendWebhook(webhook WebhookConfig, event string, data map[str
 	if webhook.URLEnv != "" {
 		url = os.Getenv(webhook.URLEnv)
 	}
-	
+
 	if url == "" {
 		return fmt.Errorf("webhook URL not configured")
 	}
-	
+
 	// Build payload
 	payload := n.buildPayload(webhook, event, data)
-	
+
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshaling payload: %w", err)
 	}
-	
+
 	resp, err := n.client.Post(url, "application/json", bytes.NewReader(jsonData))
 	if err != nil {
 		return fmt.Errorf("sending webhook: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("webhook returned status %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (n *Notifier) buildPayload(webhook WebhookConfig, event string, data map[st
 	if webhook.Template == "" {
 		return n.buildDiscordPayload(event, data)
 	}
-	
+
 	// Custom template
 	tmpl, err := template.New("webhook").Parse(webhook.Template)
 	if err != nil {
@@ -111,14 +111,14 @@ func (n *Notifier) buildPayload(webhook WebhookConfig, event string, data map[st
 			"error": "template parse error",
 		}
 	}
-	
+
 	var buf bytes.Buffer
 	templateData := map[string]interface{}{
 		"event":     event,
 		"data":      data,
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	
+
 	if err := tmpl.Execute(&buf, templateData); err != nil {
 		return map[string]interface{}{
 			"event": event,
@@ -126,14 +126,14 @@ func (n *Notifier) buildPayload(webhook WebhookConfig, event string, data map[st
 			"error": "template exec error",
 		}
 	}
-	
+
 	var result map[string]interface{}
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
 		return map[string]interface{}{
 			"content": buf.String(),
 		}
 	}
-	
+
 	return result
 }
 
@@ -154,19 +154,19 @@ func (n *Notifier) buildDiscordPayload(event string, data map[string]interface{}
 		"recovery_complete": {"✅", 0x00FF00, "Recovery Complete"},
 		"error":             {"❌", 0xFF0000, "Error"},
 	}
-	
+
 	config, ok := eventConfig[event]
 	if !ok {
 		config = eventConfig["error"]
 		config.title = event
 	}
-	
+
 	// Build description from data
 	description := ""
 	for k, v := range data {
 		description += fmt.Sprintf("**%s**: %v\n", k, v)
 	}
-	
+
 	return map[string]interface{}{
 		"embeds": []map[string]interface{}{
 			{

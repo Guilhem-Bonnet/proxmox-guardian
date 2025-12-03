@@ -25,7 +25,7 @@ func NewSSHExecutor(host, user, command string) *SSHExecutor {
 	if user == "" {
 		user = "root"
 	}
-	
+
 	return &SSHExecutor{
 		BaseAction: BaseAction{
 			Type:    "ssh",
@@ -41,7 +41,7 @@ func NewSSHExecutor(host, user, command string) *SSHExecutor {
 // Execute runs the SSH command
 func (s *SSHExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 	start := time.Now()
-	
+
 	client, err := s.connect()
 	if err != nil {
 		return &ActionResult{
@@ -51,7 +51,7 @@ func (s *SSHExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 		}, err
 	}
 	defer client.Close()
-	
+
 	session, err := client.NewSession()
 	if err != nil {
 		return &ActionResult{
@@ -61,17 +61,17 @@ func (s *SSHExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 		}, err
 	}
 	defer session.Close()
-	
+
 	var stdout, stderr bytes.Buffer
 	session.Stdout = &stdout
 	session.Stderr = &stderr
-	
+
 	// Create a channel to handle command completion
 	done := make(chan error, 1)
 	go func() {
 		done <- session.Run(s.Command)
 	}()
-	
+
 	// Wait for completion or context cancellation
 	select {
 	case <-ctx.Done():
@@ -91,7 +91,7 @@ func (s *SSHExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 			}, err
 		}
 	}
-	
+
 	return &ActionResult{
 		Success:  true,
 		Output:   stdout.String(),
@@ -107,7 +107,7 @@ func (s *SSHExecutor) Recover(ctx context.Context) (*ActionResult, error) {
 			Output:  "no recovery command defined",
 		}, nil
 	}
-	
+
 	recoveryExec := &SSHExecutor{
 		BaseAction: BaseAction{
 			Type:    "ssh",
@@ -118,7 +118,7 @@ func (s *SSHExecutor) Recover(ctx context.Context) (*ActionResult, error) {
 		User:    s.User,
 		KeyFile: s.KeyFile,
 	}
-	
+
 	return recoveryExec.Execute(ctx)
 }
 
@@ -127,7 +127,7 @@ func (s *SSHExecutor) Healthcheck(ctx context.Context) (bool, error) {
 	if s.BaseAction.Healthcheck == nil {
 		return true, nil
 	}
-	
+
 	checkExec := &SSHExecutor{
 		BaseAction: BaseAction{
 			Type:    "ssh",
@@ -138,11 +138,11 @@ func (s *SSHExecutor) Healthcheck(ctx context.Context) (bool, error) {
 		User:    s.User,
 		KeyFile: s.KeyFile,
 	}
-	
+
 	result, err := checkExec.Execute(ctx)
-	
+
 	expectSuccess := s.BaseAction.Healthcheck.Expect == "success"
-	
+
 	if expectSuccess {
 		return result.Success, err
 	}
@@ -160,12 +160,12 @@ func (s *SSHExecutor) connect() (*ssh.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading SSH key: %w", err)
 	}
-	
+
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
 		return nil, fmt.Errorf("parsing SSH key: %w", err)
 	}
-	
+
 	config := &ssh.ClientConfig{
 		User: s.User,
 		Auth: []ssh.AuthMethod{
@@ -174,13 +174,13 @@ func (s *SSHExecutor) connect() (*ssh.Client, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Use known_hosts
 		Timeout:         10 * time.Second,
 	}
-	
+
 	// Add port if not present
 	host := s.Host
 	if _, _, err := net.SplitHostPort(host); err != nil {
 		host = net.JoinHostPort(host, "22")
 	}
-	
+
 	return ssh.Dial("tcp", host, config)
 }
 

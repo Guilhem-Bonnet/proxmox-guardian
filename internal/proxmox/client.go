@@ -43,11 +43,11 @@ type GuestSelector struct {
 
 // Config holds Proxmox client configuration
 type Config struct {
-	APIURL       string
-	TokenID      string
-	TokenSecret  string
-	InsecureTLS  bool
-	DefaultNode  string
+	APIURL      string
+	TokenID     string
+	TokenSecret string
+	InsecureTLS bool
+	DefaultNode string
 }
 
 // NewClient creates a new Proxmox client
@@ -466,17 +466,17 @@ func parseTags(tagsStr string) []string {
 	if tagsStr == "" {
 		return nil
 	}
-	
+
 	tags := strings.Split(tagsStr, ";")
 	result := make([]string, 0, len(tags))
-	
+
 	for _, tag := range tags {
 		tag = strings.TrimSpace(tag)
 		if tag != "" {
 			result = append(result, tag)
 		}
 	}
-	
+
 	return result
 }
 

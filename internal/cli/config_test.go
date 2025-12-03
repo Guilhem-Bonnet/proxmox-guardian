@@ -11,7 +11,7 @@ func TestLoadConfig(t *testing.T) {
 	// Create a temporary config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "test.yaml")
-	
+
 	configContent := `
 ups:
   driver: nut
@@ -45,16 +45,16 @@ options:
   dry_run: false
   log_level: info
 `
-	
+
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
-	
+
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
-	
+
 	// Verify UPS config
 	if cfg.UPS.Host != "localhost:3493" {
 		t.Errorf("Expected UPS host 'localhost:3493', got '%s'", cfg.UPS.Host)
@@ -65,12 +65,12 @@ options:
 	if cfg.UPS.Thresholds.Warning != 30 {
 		t.Errorf("Expected warning threshold 30, got %d", cfg.UPS.Thresholds.Warning)
 	}
-	
+
 	// Verify Proxmox config
 	if cfg.Proxmox.APIURL != "https://127.0.0.1:8006/api2/json" {
 		t.Errorf("Expected Proxmox API URL, got '%s'", cfg.Proxmox.APIURL)
 	}
-	
+
 	// Verify phases
 	if len(cfg.Phases) != 1 {
 		t.Errorf("Expected 1 phase, got %d", len(cfg.Phases))
@@ -78,7 +78,7 @@ options:
 	if cfg.Phases[0].Name != "test-phase" {
 		t.Errorf("Expected phase name 'test-phase', got '%s'", cfg.Phases[0].Name)
 	}
-	
+
 	// Verify recovery
 	if !cfg.Recovery.Enabled {
 		t.Error("Expected recovery to be enabled")
@@ -170,7 +170,7 @@ func TestConfigValidation(t *testing.T) {
 			expectErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
@@ -230,12 +230,12 @@ func TestValidateAction(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "valid on_error continue",
-			action: Action{Type: "local", Command: "echo", OnError: "continue"},
+			name:      "valid on_error continue",
+			action:    Action{Type: "local", Command: "echo", OnError: "continue"},
 			expectErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateAction(tt.action)
