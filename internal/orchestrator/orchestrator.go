@@ -126,7 +126,7 @@ func (o *Orchestrator) Execute(ctx context.Context, triggerEvent string) error {
 		o.state.CurrentPhase = i
 		o.state.CurrentAction = 0
 		o.state.LastUpdated = time.Now()
-		o.saveState()
+		_ = o.saveState()
 		o.mu.Unlock()
 
 		o.notify("phase_start", map[string]interface{}{
@@ -150,7 +150,7 @@ func (o *Orchestrator) Execute(ctx context.Context, triggerEvent string) error {
 	o.mu.Lock()
 	o.state.Status = "completed"
 	o.state.LastUpdated = time.Now()
-	o.saveState()
+	_ = o.saveState()
 	o.mu.Unlock()
 
 	o.notify("shutdown_complete", map[string]interface{}{
@@ -180,7 +180,7 @@ func (o *Orchestrator) executeSequential(ctx context.Context, phaseIndex int, ph
 		o.mu.Lock()
 		o.state.CurrentAction = i
 		o.state.LastUpdated = time.Now()
-		o.saveState()
+		_ = o.saveState()
 		o.mu.Unlock()
 
 		result, err := o.executeAction(ctx, phaseIndex, phase.Name, i, action)

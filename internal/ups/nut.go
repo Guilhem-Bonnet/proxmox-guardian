@@ -118,9 +118,9 @@ func (c *Client) getVariables(ctx context.Context) (map[string]string, error) {
 
 	// Set deadline from context
 	if deadline, ok := ctx.Deadline(); ok {
-		c.conn.SetDeadline(deadline)
+		_ = c.conn.SetDeadline(deadline)
 	} else {
-		c.conn.SetDeadline(time.Now().Add(c.timeout))
+		_ = c.conn.SetDeadline(time.Now().Add(c.timeout))
 	}
 
 	// Request all variables

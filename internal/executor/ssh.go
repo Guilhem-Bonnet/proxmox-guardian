@@ -75,7 +75,7 @@ func (s *SSHExecutor) Execute(ctx context.Context) (*ActionResult, error) {
 	// Wait for completion or context cancellation
 	select {
 	case <-ctx.Done():
-		session.Signal(ssh.SIGTERM)
+		_ = session.Signal(ssh.SIGTERM)
 		return &ActionResult{
 			Success:  false,
 			Error:    "command cancelled",
