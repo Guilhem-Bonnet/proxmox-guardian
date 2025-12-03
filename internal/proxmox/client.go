@@ -239,7 +239,8 @@ func (c *Client) ShutdownGuest(ctx context.Context, guestType string, vmid int, 
 			return fmt.Errorf("getting LXC %d: %w", vmid, err)
 		}
 
-		task, err := container.Shutdown(ctx)
+		// Shutdown(ctx, forceStop bool, timeout int)
+		task, err := container.Shutdown(ctx, false, int(timeout.Seconds()))
 		if err != nil {
 			return fmt.Errorf("shutting down LXC %d: %w", vmid, err)
 		}

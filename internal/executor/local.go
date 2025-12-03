@@ -1,109 +1,107 @@
-package executorpackage executor
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}	return fmt.Sprintf("Local: %s", truncateCmd(l.Command))func (l *LocalExecutor) String() string {// String returns a human-readable description}	return !result.Success, nil	}		return result.Success, nil	if expectSuccess {		expectSuccess := l.BaseAction.Healthcheck.Expect == "success"		result, _ := checkExec.Execute(ctx)		checkExec.Timeout = 10 * time.Second	checkExec := NewLocalExecutor(l.BaseAction.Healthcheck.Command)		}		return true, nil	if l.BaseAction.Healthcheck == nil {func (l *LocalExecutor) Healthcheck(ctx context.Context) (bool, error) {// Healthcheck verifies the action completed}	return recoveryExec.Execute(ctx)		recoveryExec.Timeout = l.Timeout	recoveryExec := NewLocalExecutor(l.Recovery)		}		}, nil			Output:  "no recovery command defined",			Success: true,		return &ActionResult{	if l.Recovery == "" {func (l *LocalExecutor) Recover(ctx context.Context) (*ActionResult, error) {// Recover runs the recovery command}	}, nil		Duration: time.Since(start),		Output:   stdout.String(),		Success:  true,	return &ActionResult{		}		}, err			Duration: time.Since(start),			Error:    fmt.Sprintf("%v: %s", err, stderr.String()),			Output:   stdout.String(),			Success:  false,		return &ActionResult{	if err != nil {		}		}, ctx.Err()			Duration: time.Since(start),			Error:    "command timed out",			Output:   stdout.String(),			Success:  false,		return &ActionResult{	if ctx.Err() == context.DeadlineExceeded {		err := cmd.Run()		cmd.Stderr = &stderr	cmd.Stdout = &stdout	var stdout, stderr bytes.Buffer		cmd := exec.CommandContext(ctx, l.Shell, "-c", l.Command)		defer cancel()	ctx, cancel := context.WithTimeout(ctx, l.Timeout)	// Create command with context for timeout		start := time.Now()func (l *LocalExecutor) Execute(ctx context.Context) (*ActionResult, error) {// Execute runs the local command}	}		Shell: "/bin/sh",		},			Timeout: 60 * time.Second,			Command: command,			Type:    "local",		BaseAction: BaseAction{	return &LocalExecutor{func NewLocalExecutor(command string) *LocalExecutor {// NewLocalExecutor creates a new local executor}	Shell string	BaseActiontype LocalExecutor struct {// LocalExecutor executes commands locally)	"time"	"os/exec"	"fmt"	"context"	"bytes"import (
+package executor
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"os/exec"
+	"time"
+)
+
+// LocalExecutor executes commands locally
+type LocalExecutor struct {
+	BaseAction
+	Shell string
+}
+
+// NewLocalExecutor creates a new local executor
+func NewLocalExecutor(command string) *LocalExecutor {
+	return &LocalExecutor{
+		BaseAction: BaseAction{
+			Type:    "local",
+			Command: command,
+			Timeout: 60 * time.Second,
+		},
+		Shell: "/bin/sh",
+	}
+}
+
+// Execute runs the local command
+func (l *LocalExecutor) Execute(ctx context.Context) (*ActionResult, error) {
+	start := time.Now()
+
+	// Create command with context for timeout
+	ctx, cancel := context.WithTimeout(ctx, l.Timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, l.Shell, "-c", l.Command)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return &ActionResult{
+			Success:  false,
+			Output:   stdout.String(),
+			Error:    "command timed out",
+			Duration: time.Since(start),
+		}, ctx.Err()
+	}
+
+	if err != nil {
+		return &ActionResult{
+			Success:  false,
+			Output:   stdout.String(),
+			Error:    fmt.Sprintf("%v: %s", err, stderr.String()),
+			Duration: time.Since(start),
+		}, err
+	}
+
+	return &ActionResult{
+		Success:  true,
+		Output:   stdout.String(),
+		Duration: time.Since(start),
+	}, nil
+}
+
+// Recover runs the recovery command
+func (l *LocalExecutor) Recover(ctx context.Context) (*ActionResult, error) {
+	if l.Recovery == "" {
+		return &ActionResult{
+			Success: true,
+			Output:  "no recovery command defined",
+		}, nil
+	}
+
+	recoveryExec := NewLocalExecutor(l.Recovery)
+	recoveryExec.Timeout = l.Timeout
+
+	return recoveryExec.Execute(ctx)
+}
+
+// Healthcheck verifies the action completed
+func (l *LocalExecutor) Healthcheck(ctx context.Context) (bool, error) {
+	if l.BaseAction.Healthcheck == nil {
+		return true, nil
+	}
+
+	checkExec := NewLocalExecutor(l.BaseAction.Healthcheck.Command)
+	checkExec.Timeout = 10 * time.Second
+
+	result, _ := checkExec.Execute(ctx)
+
+	expectSuccess := l.BaseAction.Healthcheck.Expect == "success"
+
+	if expectSuccess {
+		return result.Success, nil
+	}
+	return !result.Success, nil
+}
+
+// String returns a human-readable description
+func (l *LocalExecutor) String() string {
+	return fmt.Sprintf("Local: %s", truncateCmd(l.Command))
+}
