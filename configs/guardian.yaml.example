@@ -1,0 +1,228 @@
+# Proxmox Guardian Configuration Example
+# Copy to /etc/proxmox-guardian/guardian.yaml and customize
+
+# ============================================
+# UPS Configuration (NUT)
+# ============================================
+ups:
+  driver: nut
+  host: localhost:3493
+  name: eaton-ups
+  thresholds:
+    warning: 30        # Send notification at 30% battery
+    critical: 20       # Start shutdown sequence at 20%
+    emergency: 10      # Force immediate shutdown at 10%
+
+# ============================================
+# Proxmox API Configuration
+# ============================================
+proxmox:
+  api_url: https://192.168.1.10:8006/api2/json
+  token_id: guardian@pve!shutdown
+  # Store secrets in a separate file with 0600 permissions
+  secrets_file: /etc/proxmox-guardian/secrets.yaml
+  insecure_tls: true  # Set to false in production with valid certs
+
+# ============================================
+# Shutdown Phases
+# Phases execute in order. Within a phase:
+# - parallel: true  -> actions run concurrently
+# - parallel: false -> actions run sequentially
+# ============================================
+phases:
+  # Phase 1: Disable inputs to prevent new work
+  - name: "disable-inputs"
+    parallel: true
+    actions:
+      - type: ssh
+        host: "192.168.1.20"
+        user: root
+        command: "crontab -l > /tmp/cron.bak && crontab -r || true"
+        recovery: "crontab /tmp/cron.bak || true"
+        timeout: 30s
+        on_error: continue
+        
+      - type: proxmox-exec
+        guest: "lxc:media-stack"
+        command: "docker compose -f /opt/stacks/media/compose.yml pause sonarr radarr || true"
+        recovery: "docker compose -f /opt/stacks/media/compose.yml unpause sonarr radarr || true"
+        timeout: 30s
+        on_error: continue
+
+  # Phase 2: Wait for running jobs to complete
+  - name: "wait-running-jobs"
+    parallel: true
+    timeout: 300s  # Max 5 minutes for this phase
+    actions:
+      - type: ssh
+        host: "192.168.1.20"
+        command: |
+          timeout 120 bash -c 'while pgrep -f "backup.sh|rsync" > /dev/null; do 
+            echo "Waiting for backup jobs..."
+            sleep 10
+          done' || true
+        timeout: 180s
+        on_error: continue
+
+  # Phase 3: Stop Docker stacks gracefully
+  - name: "stop-docker-stacks"
+    parallel: false  # Sequential to respect dependencies
+    actions:
+      # Stop media stack first (depends on nothing critical)
+      - type: proxmox-exec
+        guest: "lxc:media-stack"
+        command: "docker compose -f /opt/stacks/media/compose.yml down --timeout 60"
+        timeout: 120s
+        on_error: continue
+        retry:
+          attempts: 2
+          delay: 5s
+          backoff: linear
+          
+      # Stop monitoring stack
+      - type: proxmox-exec
+        guest: "lxc:monitoring"
+        command: "docker compose -f /opt/monitoring/compose.yml down --timeout 30"
+        timeout: 60s
+        on_error: continue
+
+  # Phase 4: Stop databases safely
+  - name: "stop-databases"
+    parallel: true
+    actions:
+      # PostgreSQL - fast shutdown mode
+      - type: ssh
+        host: "192.168.1.30"
+        user: postgres
+        command: "pg_ctl stop -m fast -D /var/lib/postgresql/data -t 60"
+        timeout: 90s
+        on_error: continue
+        healthcheck:
+          command: "pg_isready -q"
+          expect: failure  # We expect PG to be DOWN after stop
+          
+      # Redis - save and shutdown
+      - type: proxmox-exec
+        guest: "lxc:redis-cache"
+        command: "redis-cli BGSAVE && sleep 5 && redis-cli SHUTDOWN SAVE"
+        timeout: 30s
+        on_error: continue
+
+  # Phase 5: Stop custom systemd services
+  - name: "stop-systemd-services"
+    parallel: true
+    actions:
+      - type: ssh
+        host: "192.168.1.40"
+        command: "systemctl stop my-custom-app.service || true"
+        recovery: "systemctl start my-custom-app.service"
+        timeout: 60s
+        on_error: continue
+
+  # Phase 6: Shutdown LXC containers
+  - name: "shutdown-lxc"
+    parallel: false
+    actions:
+      # Non-critical LXC first
+      - type: proxmox-guest
+        selector:
+          type: lxc
+          tags: [non-critical]
+        action: shutdown
+        timeout: 60s
+        on_error: continue
+        
+      # Then remaining LXC
+      - type: proxmox-guest
+        selector:
+          type: lxc
+          exclude_tags: [always-on]
+        action: shutdown
+        timeout: 90s
+        on_error: continue
+
+  # Phase 7: Shutdown VMs
+  - name: "shutdown-vms"
+    parallel: false
+    actions:
+      # Low priority VMs first
+      - type: proxmox-guest
+        selector:
+          type: vm
+          tags: [priority-low]
+        action: shutdown
+        timeout: 120s
+        on_error: continue
+        
+      # High priority VMs last
+      - type: proxmox-guest
+        selector:
+          type: vm
+          tags: [priority-high]
+        action: shutdown
+        timeout: 180s
+        on_error: continue
+
+  # Phase 8: Shutdown host (only at emergency level)
+  - name: "shutdown-host"
+    condition: "battery <= 10"  # Only if battery critically low
+    actions:
+      - type: local
+        command: "shutdown -h +1 'UPS battery critical - shutting down'"
+        timeout: 10s
+
+# ============================================
+# Recovery Configuration
+# ============================================
+recovery:
+  enabled: true
+  # Wait this long after power returns before starting recovery
+  # Prevents "flapping" if power is unstable
+  power_stable_delay: 60s
+  # What to do if recovery fails
+  on_error: notify  # notify | retry | ignore
+
+# ============================================
+# Notifications
+# ============================================
+notifications:
+  # Discord webhook
+  - type: webhook
+    url_env: DISCORD_WEBHOOK_URL  # Read from environment variable
+    events:
+      - power_lost
+      - power_restored
+      - shutdown_start
+      - shutdown_complete
+      - phase_start
+      - phase_complete
+      - recovery_start
+      - recovery_complete
+      - error
+
+  # Slack webhook (example)
+  # - type: webhook
+  #   url_env: SLACK_WEBHOOK_URL
+  #   events: [shutdown_start, shutdown_complete, error]
+  #   template: |
+  #     {
+  #       "text": "{{ .event }}: {{ .data.message }}"
+  #     }
+
+# ============================================
+# Global Options
+# ============================================
+options:
+  # Dry run mode - log actions without executing
+  dry_run: false
+  
+  # Logging
+  log_level: info  # debug, info, warn, error
+  log_format: json
+  log_file: /var/log/proxmox-guardian/guardian.log
+  
+  # State persistence for recovery
+  state_file: /var/lib/proxmox-guardian/state.json
+  
+  # Lock file to prevent concurrent execution
+  lock_file: /var/run/proxmox-guardian.lock

@@ -1,0 +1,40 @@
+[Unit]
+Description=Proxmox Guardian - UPS Graceful Shutdown Orchestrator
+Documentation=https://github.com/Guilhem-Bonnet/proxmox-guardian
+After=network.target nut-server.service
+Wants=nut-server.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# Main executable
+ExecStart=/usr/local/bin/proxmox-guardian daemon --config /etc/proxmox-guardian/guardian.yaml
+
+# Graceful shutdown
+ExecStop=/bin/kill -SIGTERM $MAINPID
+TimeoutStopSec=30
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Environment
+Environment="DISCORD_WEBHOOK_URL="
+EnvironmentFile=-/etc/proxmox-guardian/environment
+
+# Security hardening
+NoNewPrivileges=false  # Needs privileges for shutdown
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/proxmox-guardian /var/log/proxmox-guardian /var/run
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proxmox-guardian
+
+[Install]
+WantedBy=multi-user.target
