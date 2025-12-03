@@ -204,7 +204,7 @@ func (o *Orchestrator) executeSequential(ctx context.Context, phaseIndex int, ph
 
 		o.mu.Lock()
 		o.state.CompletedActions = append(o.state.CompletedActions, completed)
-		o.saveState()
+		_ = o.saveState()
 		o.mu.Unlock()
 
 		// Handle error based on on_error setting
@@ -257,7 +257,7 @@ func (o *Orchestrator) executeParallel(ctx context.Context, phaseIndex int, phas
 
 			o.mu.Lock()
 			o.state.CompletedActions = append(o.state.CompletedActions, completed)
-			o.saveState()
+			_ = o.saveState()
 			o.mu.Unlock()
 
 			if err != nil && act.OnError == "abort_all" {
@@ -333,7 +333,7 @@ func (o *Orchestrator) Recover(ctx context.Context) error {
 		return fmt.Errorf("nothing to recover")
 	}
 	o.state.Status = "recovering"
-	o.saveState()
+	_ = o.saveState()
 	o.mu.Unlock()
 
 	o.notify("recovery_start", map[string]interface{}{
@@ -361,7 +361,7 @@ func (o *Orchestrator) Recover(ctx context.Context) error {
 	o.mu.Lock()
 	o.state.Status = "idle"
 	o.state.CompletedActions = nil
-	o.saveState()
+	_ = o.saveState()
 	o.mu.Unlock()
 
 	o.notify("recovery_complete", map[string]interface{}{
