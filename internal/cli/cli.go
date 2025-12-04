@@ -163,7 +163,6 @@ InsecureTLS: cfg.Proxmox.InsecureTLS,
 		defer ticker.Stop()
 
 		var onBatteryStart time.Time
-		var shutdownTriggered bool
 
 		fmt.Println("🔋 Starting UPS monitoring loop...")
 
@@ -191,7 +190,7 @@ status.BatteryCharge, status.Runtime, status.Status)
 				fmt.Printf("🔋 Battery: %d%% | Runtime: %ds | Status: %s | Load: %d%%\n",
 status.BatteryCharge, status.Runtime, status.Status, status.Load)
 
-				if status.IsOnBattery() && !shutdownTriggered {
+				if status.IsOnBattery() {
 					if onBatteryStart.IsZero() {
 						onBatteryStart = time.Now()
 						fmt.Println("⚡ Power outage detected! Starting monitoring...")
@@ -213,7 +212,6 @@ status.BatteryCharge, cfg.UPS.Thresholds.Critical)
 
 					if shouldShutdown {
 						fmt.Printf("🚨 SHUTDOWN TRIGGERED: %s\n", reason)
-						shutdownTriggered = true
 
 						// Build orchestrator phases from config
 						phases, err := buildPhasesFromConfig(cfg, pxClient)
@@ -248,7 +246,6 @@ status.BatteryCharge, cfg.UPS.Thresholds.Critical)
 				} else if status.IsOnline() && !onBatteryStart.IsZero() {
 					fmt.Println("✅ Power restored!")
 					onBatteryStart = time.Time{}
-					// Note: shutdownTriggered stays false as it was never set (shutdown didn't happen)
 				}
 			}
 		}
