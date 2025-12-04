@@ -44,3 +44,4 @@ state.json
 # Logs
 *.log
 logs/
+proxmox-guardian-linux
