@@ -55,6 +55,13 @@ proxmox-guardian apply
 
 # Start daemon mode (monitors UPS continuously)
 proxmox-guardian daemon
+
+# Test commands (validate your setup before relying on it)
+proxmox-guardian test connection              # Test NUT, Proxmox API, SSH
+proxmox-guardian test shutdown --dry-run      # Simulate full sequence
+proxmox-guardian test shutdown --phase=2      # Test specific phase
+proxmox-guardian test shutdown --phase=1 --action=1  # Test single action
+proxmox-guardian test recovery                # Test recovery sequence
 ```
 
 ## 📝 Configuration Example
