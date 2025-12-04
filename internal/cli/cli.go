@@ -248,7 +248,7 @@ status.BatteryCharge, cfg.UPS.Thresholds.Critical)
 				} else if status.IsOnline() && !onBatteryStart.IsZero() {
 					fmt.Println("✅ Power restored!")
 					onBatteryStart = time.Time{}
-					shutdownTriggered = false
+					shutdownTriggered = false //nolint:ineffassign // Reset for next power outage cycle
 				}
 			}
 		}
